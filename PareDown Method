@@ -1,0 +1,48 @@
+Sub pareDown()
+'
+'   This macro compares a new pricelist to the old pricelist of the same company.  If the old pricelist has
+'   less than half the amount of parts in it, the new pricelist is pared down to match the old.  This determination can be done by human eyes, however, and is not done in the code.
+'   Before activation of this macro, the old parts list should be quickly checked for size versus the size of the new parts list.
+'
+
+'Data Instantiation
+
+'This variable holds the part number from the new pricelist.
+Dim NewPricePartNum As String
+'This boolean variable is set to true if a part number is found in the old pricing data.
+Dim ExistsInOld As Boolean
+'This integer variable is used to track how many rows are deleted.
+Dim DeleteCount As Integer
+DeleteCount = 0
+'These variables hold the tables used in this macro
+Dim priceTable As ListObject
+Dim oldPriceTable As ListObject
+Sheets("NewPrices").Select
+Set priceTable = ActiveSheet.ListObjects("PriceTable")
+Sheets("OldPrices").Select
+Set oldPriceTable = ActiveSheet.ListObjects("OldPriceTable")
+
+'Process
+Sheets("NewPrices").Select
+For i = 2 To priceTable.Range.Rows.Count
+    NewPricePartNum = Cells(i, 6).Value
+    ExistsInOld = False
+    Sheets("OldPrices").Select
+    For j = 2 To oldPriceTable.Range.Rows.Count
+        If Cells(j, 6).Value = NewPricePartNum Then
+            ExistsInOld = True
+        End If
+        If ExistsInOld Then Exit For
+    Next j
+    Sheets("NewPrices").Select
+    If Not ExistsInOld Then
+        Rows(i).Delete
+        i = i - 1
+        DeleteCount = DeleteCount + 1
+    End If
+Next i
+
+MsgBox DeleteCount & " rows were deleted from the new price list"
+          
+        
+End Sub
