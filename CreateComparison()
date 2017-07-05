@@ -1,0 +1,168 @@
+Sub CreateComparisonList()
+'
+'   This is the latest form of InputGrab()
+'
+'
+    Dim WBF As Excel.Workbook
+    Dim strFileName, strFilePath As String
+    Dim FSO As Object
+    Dim strWorkBook As Excel.Workbook
+    Dim otherWB
+    Dim PriceCompare As Workbook
+    
+    strFileName = InputBox("Enter the price list file name. Do not include the extension.", "File Name")
+    strFilePath = "C:\Users\jessem\Revised Pricelists\" & strFileName & ".xlsx"
+    otherWB = strFileName & ".xlsx"
+    Set PriceCompare = ActiveWorkbook
+    
+    Set FSO = CreateObject("scripting.filesystemobject")
+    If FSO.FileExists(strFilePath) = True Then
+        
+        Set strWorkBook = GetObject(strFilePath)
+    'This section of code is opening up the price list and copying the vendor ID column and the Company column
+    'to the price comparison table.
+        Workbooks.Open (strFilePath)
+        Workbooks(otherWB).Activate
+        Sheets("ParedPrices").Select
+        Range("ParedPriceTable[Company],ParedPriceTable[VendorID]").Copy
+        PriceCompare.Activate
+        Range("A2").Select
+        ActiveSheet.Paste
+    'This section is copying the PartNum and VenPartNum columns to the price comparison table
+        Workbooks(otherWB).Activate
+        Sheets("ParedPrices").Select
+        Range("ParedPriceTable[PartNum],ParedPriceTable[VenPartNum]").Copy
+        PriceCompare.Activate
+        Range("C2").Select
+        ActiveSheet.Paste
+    'This section copies over the PUM and BaseUnitPrice from the price list to PUM and NewPrice in the price
+    'comparison table
+        Workbooks(otherWB).Activate
+        Sheets("ParedPrices").Select
+        Range("ParedPriceTable[BaseUnitPrice]").Copy
+        PriceCompare.Activate
+        Range("G2").Select
+        Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+        Workbooks(otherWB).Activate
+        Range("ParedPriceTable[PUM]").Copy
+        PriceCompare.Activate
+        Range("F2").Select
+        ActiveSheet.Paste
+    'This section brings over the previous pricing columns and formats them.
+        'In the active workbook of 'PriceCompare'
+        Sheets("Previous Pricing").Select
+        Columns("F:F").Select
+        Selection.Cut
+        Columns("C:C").Select
+        Selection.Insert Shift:=xlToRight
+        'Columns("F:F").Select
+        'Range("F1").Select
+        'Range(Selection, Selection.End(xlDown)).Select
+        'Selection.Cut
+        'Columns("C:C").Select
+        'Range("Previous_Pricing[BaseUnitPrice]").Select
+        'Selection.Insert Shift:=xlToRight
+        Columns("C:D").Select
+        ActiveWorkbook.Names.Add Name:="range", RefersToR1C1:= _
+        "='Previous Pricing'!C3:C4"
+    Else
+        MsgBox "File Name does not match any existing files"
+    End If
+    'This section of the code conducts VLookUps to match vendor
+    'part numbers.  This section can probably be more efficient.
+        Sheets("PriceView").Select
+        Range("H2").Select
+        ActiveCell.FormulaR1C1 = "=VLOOKUP(RC[-4],range,2,FALSE)"
+        Range("J2").Select
+        ActiveCell.FormulaR1C1 = "=RC[-3]-RC[-2]"
+        Range("I2").Select
+        ActiveCell.FormulaR1C1 = "=RC[1]/RC[-1]"
+        Range("I2").Select
+        Sheets("VendorFilteredQtyShipped").Select
+        Columns("B:C").Select
+        ActiveWindow.SmallScroll Down:=-12
+        Range( _
+            "QtyShipped[[PartNum]:[QuantityShipped]]" _
+            ).Select
+        ActiveWorkbook.Names.Add Name:="range2", RefersToR1C1:= _
+            "=QtyShipped[[PartNum]:[QuantityShipped]]"
+        Sheets("PriceView").Select
+        Range("K2").Select
+        ActiveCell.FormulaR1C1 = "=VLOOKUP(RC[-7],range2,2,FALSE)"
+        Sheets("VendorFilteredPriceChangeReport").Select
+        Range( _
+            "PriceChangeReport[[PartNum]:[VendorID]]" _
+            ).Select
+        ActiveWorkbook.Names.Add Name:="range3", RefersToR1C1:= _
+            "=PriceChangeReport[[PartNum]:[VendorID]]"
+        Sheets("PriceView").Select
+        Range("L2").Select
+        ActiveCell.FormulaR1C1 = "=VLOOKUP(RC[-8],range3,2,FALSE)"
+        ActiveCell.FormulaR1C1 = "=VLOOKUP(RC[-8],range3,2,FALSE)"
+        Range("M2").Select
+        ActiveCell.FormulaR1C1 = "=VLOOKUP(RC[-9],range3,3,FALSE)"
+        Range("N2").Select
+        ActiveCell.FormulaR1C1 = "=VLOOKUP(RC[-10],range3,3,FALSE)"
+        Range("O2").Select
+        
+        ActiveCell.FormulaR1C1 = "=VLOOKUP(RC[-11],range3,5,FALSE)"
+        'Range("G2:O2").Select
+        'Range(Selection, Selection.End(xlDown)).Select
+        'Selection.FillDown
+      
+    'This section of code fills in the conditional formatting
+    Range("ComparisonTable[%Change]").Select
+    Selection.FormatConditions.Add Type:=xlCellValue, Operator:=xlBetween, _
+        Formula1:="=0.00001", Formula2:="=0.1"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Font
+        .ThemeColor = xlThemeColorAccent4
+        .TintAndShade = -0.249946592608417
+    End With
+    With Selection.FormatConditions(1).Interior
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent4
+        .TintAndShade = 0.399945066682943
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    Selection.FormatConditions.Add Type:=xlCellValue, Operator:=xlGreater, _
+        Formula1:="=0.1"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Font
+        .Color = -16776961
+        .TintAndShade = 0
+    End With
+    With Selection.FormatConditions(1).Interior
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent2
+        .TintAndShade = 0.399945066682943
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    Selection.FormatConditions.Add Type:=xlCellValue, Operator:=xlLess, _
+        Formula1:="=0"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Font
+        .ThemeColor = xlThemeColorAccent6
+        .TintAndShade = -0.499984740745262
+    End With
+    With Selection.FormatConditions(1).Interior
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent6
+        .TintAndShade = 0.399945066682943
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    'This section of the code copies the new values from OldPrice to NumberOfQuotes columns and pastes them back as values only.
+    Range("ComparisonTable[OldPrice]:ComparisonTable[NumberOfQuoteNumLines]").Select
+    Selection.Copy
+    Range("H2").Select
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+      
+    'This code returns to the old pricing and returns the columns to their rightful state--venpart especially
+    Sheets("Previous Pricing").Select
+    Columns("C:C").Select
+    Selection.Cut
+    Columns("G:G").Select
+    Selection.Insert Shift:=xlToRight
+End Sub
