@@ -1,0 +1,78 @@
+Sub CheckForStockCosts()
+'This macro is intended to be used on a completed price list.  It will query E10 for stock and quote parts associated with a vendor
+' and scan the price list for these parts.  If they are not represented, the part numbers will be added to the end of the price list
+' and the user will be informed of the number of missing stock and quote costs.
+
+'Data Instantiation
+Dim PriceListWB As Workbook
+Set PriceListWB = ActiveWorkbook
+Dim PartNumColumn As Integer
+PartNumColumn = 2
+Dim StockAndQuoteQuery As String
+Dim CountMissing As Integer
+CountMissing = 0
+Dim InsertRow As Long
+Dim StockTable As ListObject
+Dim PriceTable As ListObject
+
+PriceListWB.Worksheets("StockAndQuoteParts").Select
+Set StockTable = ActiveSheet.ListObjects("StockTable")
+Set PriceTable = PriceListWB.Worksheets("NewPrices").ListObjects("PriceTable")
+
+Dim serv_conn As ADODB.Connection
+Set serv_conn = New ADODB.Connection
+Dim RS As New ADODB.Recordset
+'Set the connection string, allowing for the Connection.Open function to work
+serv_conn.ConnectionString = "Driver={SQL Server};Server=ERPSQL;Database=EpicorReports"
+'Left out UID and PWD--seems to automatically use windows authentication
+serv_conn.Open
+
+'Create the query of stock and quote parts to allow for checking of their inclusion in
+'the created pricelist
+StockAndQuoteQuery = "select Vendor.VendorID, PartPlant.PartNum, VendPart.VenPartNum" _
+                     & " from Epicor10.Erp.PartPlant As PartPlant LEFT JOIN Epicor10.Erp.Vendor AS Vendor" _
+                     & " ON PartPlant.VendorNum = Vendor.VendorNum LEFT JOIN Epicor10.Erp.VendPart As VendPart" _
+                     & " ON PartPlant.PartNum = VendPart.PartNum" _
+                     & " WHERE Vendor.VendorID = 'BRADYWOR' AND PartPlant.Plant = 'DIST' AND PartPlant.BuyToOrder = 'FALSE'" _
+                     & " Union " _
+                     & " select VendorID, PartNum, VenPartNum " _
+                     & " from db_ddladmin.v_VendorFilteredPriceChangeReportData " _
+     
+'Open the recordset to allow for the execution of the query
+Set RS.ActiveConnection = serv_conn
+RS.Open StockAndQuoteQuery
+
+'Copy the data to the StockAndQuote sheet to allow for reference.
+Sheets("StockAndQuoteParts").Select
+ActiveSheet.Range("A2").CopyFromRecordset RS
+        
+'Now, loop through the stock and quote parts, attempting to find them in the new prices sheet.  If they are not present, then
+' they will be added to the bottom of the price list for reference.
+        For i = 2 To StockTable.Range.Rows.Count
+            'Activate the stock prices sheet
+            Sheets("StockAndQuoteParts").Select
+            'Store the partnumber so it can be checked for in the new price list
+            StockPartNum = Cells(i, PartNumColumn).Value
+            'Go to the new price sheet to scan it.
+            Sheets("NewPrices").Select
+            'Set fcell to the found item, if it exists.  This search should take place only on the part number column,
+            'as that is the column that parts in part plant match with vendPart on.
+            Set fCell = Range("B:B").Find(StockPartNum)
+            'If it is not found, it should be added to the price list.
+            If fCell Is Nothing Then
+                'If the part is not found, increment the count missing variable to keep track of missing parts.
+                CountMissing = CountMissing + 1
+                InsertRow = PriceTable.Range.Rows.Count + 1
+                'Add the stock part to the price list.
+                Cells(InsertRow, PartNumColumn).Value = StockPartNum
+            End If
+        Next i
+ 'Now that the check has been done, output a message to user on the results so appropriate action can be taken.
+ If CountMissing = 0 Then
+    MsgBox ("Congratulations, all stock and quote parts are represented in the new price list.  A comparison sheet can now be made for approval by purchasing.")
+ ElseIf CountMissing = 1 Then
+    MsgBox "There is " & CountMissing & " stock or quote part missing in the price list. The part number has been added to the end of the price list.  Please ascertain cost"
+ Else
+    MsgBox "There are " & CountMissing & " stock or quote parts missing in the price list. The part numbers have been added to the end of the price list.  Please ascertain costs"
+ End If
+End Sub
